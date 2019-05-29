@@ -1,0 +1,123 @@
+#!/usr/local/bin/perl
+
+=head1 NAME
+
+fmtcsv.pl - Reformat CSV for readability
+
+=head1 SYNOPSIS
+
+fmtcsv.pl [ -hnv ] [ -s separator ]
+
+=head1 DESCRIPTION
+
+Converts input CSV (Comma Separated Value) to a more human-readable format.
+The first input row is assumed to be the column headings.
+Each subsequent row is formatted one column per output line, with
+the column heading and column value.
+
+The default separator (a tab) can be changed with the -s switch.
+The input can be validated with the -v switch, to check that each
+row has the same number of columns.
+The output can include the row number by using the -n switch.
+
+The command line switches are:
+
+=over 4
+
+=item -h
+
+display usage message
+
+=item -n
+
+print row numbers
+
+=item -s
+
+column separator
+
+=item -v
+
+validate input:  same number of columns in all rows
+
+=back
+
+=head1 AUTHOR
+
+Tom Donohue - May 2004
+
+=head1 REVISION
+
+$Id: fmtcsv,v 1.1 2005/12/05 23:25:10 donohuet Exp $
+
+=cut
+
+use strict;
+use warnings;
+use File::Basename;
+use Getopt::Std;
+
+my $iam = basename($0);
+
+my $truth = 1;		# exit status
+
+our $opt_h = "";	# help
+our $opt_n = "";	# number rows
+our $opt_s = "";	# separator
+our $opt_v = "";	# validate
+getopts("hns:v");
+if ($opt_h) {
+    die "usage:  $iam [ -h(elp) ] [ -n(umber-rows)] [ -s separator ] [ -v(alidate) ]\n"
+}
+
+my $showRowNums = 0;	# display row numbers?
+$showRowNums = $opt_n	if $opt_n;
+my $sep = '\t';		# default separator:  tab
+$sep = $opt_s		if $opt_s ne "";
+my $validateOnly = 0;	# validate input without formatting?
+$validateOnly = 1	if $opt_v;
+
+my @header = ();
+my @row    = ();
+my $maxPad = 0;
+
+sub printCol {
+    my $hdr = shift;
+    my $val = shift;
+    my $l = 1 + ($maxPad - length($hdr));
+    print "$hdr:",  ' ' x $l, "$val\n";
+}
+
+sub printRow {
+    for (my $i = 0; $i < scalar(@header); ++$i) {
+	printCol($header[$i], $row[$i]);
+    }
+    print "\n";
+}
+
+my $nCols = 0;
+my $nRows = 0;
+while (<>) {
+    chomp;
+    if (scalar(@header) == 0) {
+	@header = split(/$sep/, $_, -1);
+	foreach my $h (@header) {
+	    ++$nCols;
+	    $maxPad = length($h)	if $maxPad < length($h);
+	}
+    }
+    else {
+	@row = split(/$sep/, $_, -1);
+	my $n = scalar(@row);
+	if ($n != $nCols) {
+	    print "Error!  row[$nRows] has $n columns ",
+	      "but header row[0] has $nCols\n";
+	    $truth = 0;
+	}
+	printCol(">>Row", $nRows)	if $showRowNums;
+	printRow unless $validateOnly;
+    }
+    ++$nRows;
+}
+
+$truth ? 1 : 0;
